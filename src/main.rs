@@ -1,3 +1,8 @@
+mod simulation;
+
+use simulation::Simulation;
+
 fn main() {
-    println!("Hello, world!");
+    let mut sim: Simulation = Simulation::new();
+    sim.simulate();
 }
