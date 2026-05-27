@@ -39,12 +39,14 @@ pub trait Animal {
     fn take_other_action(&mut self){
         match self.get_action_ref_immutable() {
             Action::WalkLeft | Action::WalkRight  | Action::WalkUp | Action::WalkDown => {
-                self.add_to_energy(-1);
+                self.add_to_energy(-3);
             }
             Action::Eat => {
                 panic!("Called take_other_action for a animal that wanted to eat");
             }
-            Action::None => {}
+            Action::None => {
+                self.add_to_energy(-1);
+            }
         }
     }
     fn take_eat_action(&mut self){

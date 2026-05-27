@@ -360,9 +360,15 @@ impl Map {
                 continue;
             }
             let (x, y) = self.carnivores[i].as_ref().unwrap().get_position();
-            if matches!(self.carnivores[i].as_ref().unwrap().get_action_ref_immutable(), Action::Eat) &&
-                self.take_eat_action(x as i32, y as i32, EntityType::Herbivore) {
-                self.carnivores[i].as_mut().unwrap().take_eat_action();
+            if matches!(self.carnivores[i].as_ref().unwrap().get_action_ref_immutable(), Action::Eat) {
+                if self.take_eat_action(x as i32, y as i32, EntityType::Herbivore) {
+                    self.carnivores[i].as_mut().unwrap().take_eat_action();
+                } else {
+                    self.carnivores[i].as_mut().unwrap().add_to_energy(-1);
+                }
+                if self.carnivores[i].as_ref().unwrap().get_energy() <= 0 {
+                    self.kill_animal_by_id(i, EntityType::Carnivore);
+                }
             }
         }
         for i in 0..self.herbivores.len() {
@@ -370,9 +376,15 @@ impl Map {
                 continue;
             }
             let (x, y) = self.herbivores[i].as_ref().unwrap().get_position();
-            if matches!(self.herbivores[i].as_ref().unwrap().get_action_ref_immutable(), Action::Eat) &&
-                self.take_eat_action(x as i32, y as i32, EntityType::Grass) {
-                self.herbivores[i].as_mut().unwrap().take_eat_action();
+            if matches!(self.herbivores[i].as_ref().unwrap().get_action_ref_immutable(), Action::Eat) {
+                if self.take_eat_action(x as i32, y as i32, EntityType::Grass) {
+                    self.herbivores[i].as_mut().unwrap().take_eat_action();
+                } else {
+                    self.herbivores[i].as_mut().unwrap().add_to_energy(-1);
+                }
+                if self.herbivores[i].as_ref().unwrap().get_energy() <= 0 {
+                    self.kill_animal_by_id(i, EntityType::Herbivore);
+                }
             }
         }
     }
@@ -414,9 +426,11 @@ impl Map {
             let action = self.carnivores[i].as_ref().unwrap().get_action_ref_immutable().clone();
             if self.take_other_action(x, y, action) {
                 self.carnivores[i].as_mut().unwrap().take_other_action();
-                if self.carnivores[i].as_ref().unwrap().get_energy() <= 0 {
-                    self.kill_animal_by_id(i, EntityType::Carnivore);
-                }
+            } else {
+                self.carnivores[i].as_mut().unwrap().add_to_energy(-1);
+            }
+            if self.carnivores[i].as_ref().unwrap().get_energy() <= 0 {
+                self.kill_animal_by_id(i, EntityType::Carnivore);
             }
         }
         for i in 0..self.herbivores.len() {
@@ -427,9 +441,11 @@ impl Map {
             let action = self.herbivores[i].as_ref().unwrap().get_action_ref_immutable().clone();
             if self.take_other_action(x, y, action) {
                 self.herbivores[i].as_mut().unwrap().take_other_action();
-                if self.herbivores[i].as_ref().unwrap().get_energy() <= 0 {
-                    self.kill_animal_by_id(i, EntityType::Herbivore);
-                }
+            } else {
+                self.herbivores[i].as_mut().unwrap().add_to_energy(-1);
+            }
+            if self.herbivores[i].as_ref().unwrap().get_energy() <= 0 {
+                self.kill_animal_by_id(i, EntityType::Herbivore);
             }
         }
     }

@@ -8,6 +8,7 @@ use axum::Router;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use tokio::task;
+use tower_http::cors::{Any, CorsLayer};
 use simulation::Simulation;
 use simulation::map::MapConfig;
 use simulation::generation::GenerationConfig;
@@ -62,27 +63,27 @@ impl Default for SimulationRequest {
     fn default() -> Self {
         Self {
             map: MapRequest {
-                carnivore_count: 1,
-                herbivore_count: 3,
-                grass_count: 20,
-                neuron_count: 3,
+                carnivore_count: 5,
+                herbivore_count: 15,
+                grass_count: 100,
+                neuron_count: 10,
                 neuron_layer_count: 2,
-                sense_radius: 1,
-                carnivore_max_energy: 5,
-                herbivore_max_energy: 5,
-                size_x: 20,
-                size_y: 10,
+                sense_radius: 4,
+                carnivore_max_energy: 100,
+                herbivore_max_energy: 50,
+                size_x: 200,
+                size_y: 100,
                 record: true,
             },
             generation: GenerationRequest {
-                max_generation_count: 2,
-                max_ticks_per_generation: 100,
-                carnivore_count: -1,
-                herbivore_count: -1,
+                max_generation_count: 50,
+                max_ticks_per_generation: 1000,
+                carnivore_count: 2,
+                herbivore_count: 2,
                 grass_count: -1,
                 best_carnivore_count: 2,
-                best_herbivore_count: 3,
-                all_entities_must_be_under_min_levels: false,
+                best_herbivore_count: 2,
+                all_entities_must_be_under_min_levels: true,
             },
             mutation: MutationRequest {
                 mutation_chance: 0.01,
@@ -136,9 +137,15 @@ impl From<MutationRequest> for MutationConfig {
 
 #[tokio::main]
 async fn main() {
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     let app = Router::new()
         .route("/health", get(health))
-        .route("/simulate", post(simulate).get(simulate_with_defaults));
+        .route("/simulate", post(simulate).get(simulate_with_defaults))
+        .layer(cors);
 
     let address = SocketAddr::from(([127, 0, 0, 1], 3000));
     println!("Listening on http://{address}");
