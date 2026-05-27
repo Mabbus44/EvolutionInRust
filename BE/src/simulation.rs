@@ -34,7 +34,7 @@ impl Simulation {
             print!("{}", self.to_string());*/
             self.map.start_new_generation();
         }
-        println!("************simulation over**************);");
+        //println!("************simulation over**************);");
     }
     #[allow(dead_code)]
     pub fn to_string(&self) -> String {

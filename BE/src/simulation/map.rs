@@ -115,14 +115,7 @@ impl Map {
         self.generate_entities(self.grass_start_count, EntityType::Grass, false);
         if self.record {
             self.complete_record.clear();
-            self.current_generation_record = Some(
-                GenerationRecording::new(
-                    self.carnivores.len(),
-                    self.herbivores.len(),
-                    self.carnivores.clone(),
-                    self.herbivores.clone()
-                )
-            )
+            self.init_current_generation_recording();
         }
     }
 
@@ -152,33 +145,54 @@ impl Map {
         self.best_carnivores = Vec::new();
         self.best_herbivores = Vec::new();
         if self.record {
-            self.current_generation_record = Some(
-                GenerationRecording::new(
-                    self.carnivores.len(),
-                    self.herbivores.len(),
-                    self.carnivores.clone(),
-                    self.herbivores.clone()
-                )
+            self.init_current_generation_recording();
+        }
+    }
+
+    fn init_current_generation_recording(&mut self){
+        self.current_generation_record = Some(
+            GenerationRecording::new(
+                self.carnivores.len(),
+                self.herbivores.len(),
+                self.grass_count as usize,
+                self.carnivores.clone(),
+                self.herbivores.clone()
             )
+        );
+        let mut y = 0;
+        for row in &self.plants {
+            let mut x = 0;
+            for plant in row {
+                match plant {
+                    EntityRef::Grass => {
+                        self.current_generation_record.as_mut().unwrap().grass_at_start.push((x, y));
+                    }
+                    _ => {}
+                }
+                x += 1;
+            }
+            y += 1;
         }
     }
 
     fn move_remaining_animals_to_best(&mut self) {
         let mut id: u32 = 0;
-        while self.herbivore_count > 0 && self.best_herbivores.len() < self.generation_config.best_herbivore_count as usize {
+        while self.herbivore_count > 0 && self.best_herbivores.len() < self.generation_config.best_herbivore_count as usize && id < self.herbivores.len() as u32 {
             match &self.herbivores[id as usize] {
                 Some(herbivore) => {
                     self.best_herbivores.push(herbivore.clone());
+                    self.herbivore_count -= 1;
                 }
                 None => {}
             }
             id += 1;
         }
         id = 0;
-        while self.carnivore_count > 0 && self.best_carnivores.len() < self.generation_config.best_carnivore_count as usize {
+        while self.carnivore_count > 0 && self.best_carnivores.len() < self.generation_config.best_carnivore_count as usize && id < self.carnivores.len() as u32  {
             match &self.carnivores[id as usize] {
                 Some(carnivore) => {
                     self.best_carnivores.push(carnivore.clone());
+                    self.carnivore_count -= 1;
                 }
                 None => {}
             }
@@ -379,6 +393,9 @@ impl Map {
                     return true;
                 }
                 if matches!(entity_type, EntityType::Grass) && matches!(self.plants[y][x], EntityRef::Grass) {
+                    if self.record && self.current_generation_record.is_some() {
+                        self.current_generation_record.as_mut().unwrap().dead_grass.push((self.tick, x, y));
+                    }
                     self.plants[y][x] = EntityRef::None;
                     self.grass_count -= 1;
                     return true;

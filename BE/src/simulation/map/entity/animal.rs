@@ -13,7 +13,7 @@ pub trait Animal {
     fn set_position(&mut self, x: usize, y: usize);
     fn get_position(&self) -> (usize, usize);
     fn to_json(&self) -> String {
-        let mut ret: String = "{\"neurons\":[".to_string();
+        /*let mut ret: String = "{\"neurons\":[".to_string();
         let mut first_row = true;
         for row in self.get_neurons_ref_immutable() {
             if !first_row {
@@ -30,10 +30,11 @@ pub trait Animal {
                 ret.push_str(&neuron.to_json());
             }
             ret.push_str("]");
-        }
+        }*/
         let pos = self.get_position();
-        ret.push_str(&format!("],\"energy\":{},\"action\":{},\"pos_x\":{},\"pos_y\":{}}}",self.get_energy(), self.get_action_ref_immutable().to_int(), pos.0, pos.1));
-        ret
+        format!("{{\"energy\":{},\"action\":{},\"pos_x\":{},\"pos_y\":{}}}",self.get_energy(), self.get_action_ref_immutable().to_int(), pos.0, pos.1)
+//        ret.push_str(&format!("],\"energy\":{},\"action\":{},\"pos_x\":{},\"pos_y\":{}}}",self.get_energy(), self.get_action_ref_immutable().to_int(), pos.0, pos.1));
+//        ret
     }
     fn take_other_action(&mut self){
         match self.get_action_ref_immutable() {

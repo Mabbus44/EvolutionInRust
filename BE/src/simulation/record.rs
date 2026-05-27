@@ -7,17 +7,21 @@ use super::map::entity::herbivore::Herbivore;
 pub struct GenerationRecording {
     pub carnivores_at_start: Vec<Option<Carnivore>>,
     pub herbivores_at_start: Vec<Option<Herbivore>>,
+    pub grass_at_start: Vec<(usize, usize)>,
     pub carnivore_records: Vec<Vec<AnimalRecord>>,
     pub herbivore_records: Vec<Vec<AnimalRecord>>,
+    pub dead_grass: Vec<(usize, usize, usize)>, //Tick, x, y
 }
 
 impl GenerationRecording {
-    pub fn new(carnivore_count: usize, herbivore_count: usize, carnivores: Vec<Option<Carnivore>>, herbivores: Vec<Option<Herbivore>>) -> GenerationRecording {
+    pub fn new(carnivore_count: usize, herbivore_count: usize, grass_count: usize, carnivores: Vec<Option<Carnivore>>, herbivores: Vec<Option<Herbivore>>) -> GenerationRecording {
         GenerationRecording {
             carnivores_at_start: carnivores,
             herbivores_at_start: herbivores,
+            grass_at_start: Vec::with_capacity(grass_count),
             carnivore_records: vec![Vec::new(); carnivore_count],
             herbivore_records: vec![Vec::new(); herbivore_count],
+            dead_grass: Vec::with_capacity(grass_count),
         }
     }
     pub fn to_json(&self) -> String {
@@ -52,6 +56,15 @@ impl GenerationRecording {
                     ret.push_str("{}");
                 }
             }
+        }
+        ret.push_str("],\"grass_at_start\":[");
+        first = true;
+        for grass in &self.grass_at_start {
+            if !first {
+                ret.push_str(",");
+            }
+            first = false;
+            ret.push_str(&format!("[{},{}]", grass.0, grass.1));
         }
         ret.push_str("],\"carnivore_records\":[");
         let mut first_row = true;
@@ -88,6 +101,15 @@ impl GenerationRecording {
                 ret.push_str(&record.to_json());
             }
             ret.push_str("]");
+        }
+        ret.push_str("],\"dead_grass\":[");
+        first = true;
+        for grass in &self.dead_grass {
+            if !first {
+                ret.push_str(",");
+            }
+            first = false;
+            ret.push_str(&format!("[{},{},{}]", grass.0, grass.1, grass.2));
         }
         ret.push_str("]}");
         ret
