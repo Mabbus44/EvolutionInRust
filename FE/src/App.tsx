@@ -8,13 +8,18 @@ type TickRecord = {
   pos_y: number;
 };
 type GrassDeath = [tick: number, x: number, y: number];
+type Neuron = {
+  constants: number[];
+  output: number;
+};
+type NeuronGrid = Neuron[][];
 
 type AnimalStart = {
   energy: number;
   action: Action;
   pos_x: number;
   pos_y: number;
-  neurons?: unknown;
+  neurons?: NeuronGrid;
 };
 
 type Generation = {
@@ -52,9 +57,23 @@ const ACTION_NAMES: Record<Action, string> = {
   None: 'none'
 };
 
+const OUTPUT_LABELS = ['WalkLeft', 'WalkRight', 'WalkUp', 'WalkDown', 'Eat', 'None'];
+
 const DEFAULT_SPEED = 4;
 const MIN_SPEED = 2;
 const CELL_SIZE = 14;
+
+const clamp = (value: number, min: number, max: number): number =>
+  Math.min(max, Math.max(min, value));
+
+const constantToColor = (value: number): string => {
+  const t = (clamp(value, -1, 1) + 1) / 2;
+  const red = Math.round(230 * (1 - t));
+  const blue = Math.round(230 * t);
+  const green = 40;
+
+  return `rgb(${red}, ${green}, ${blue})`;
+};
 
 const getSpeedIncrement = (speedAbs: number): number => {
   if (speedAbs >= 1000) {
@@ -235,6 +254,7 @@ const drawPixel = (
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const neuronCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [simulation, setSimulation] = useState<SimulationResponse | null>(null);
   const [generationIndex, setGenerationIndex] = useState(0);
   const [tick, setTick] = useState(0);
@@ -388,6 +408,136 @@ export default function App() {
 
     return getAnimalRecord(generation, selectedAnimal.species, selectedAnimal.index, tick);
   }, [generation, selectedAnimal, tick]);
+
+  const selectedAnimalStart = useMemo(() => {
+    if (!generation || !selectedAnimal) {
+      return null;
+    }
+
+    return selectedAnimal.species === 'carnivore'
+      ? generation.carnivores_at_start[selectedAnimal.index] ?? null
+      : generation.herbivores_at_start[selectedAnimal.index] ?? null;
+  }, [generation, selectedAnimal]);
+
+  const selectedNeurons = selectedAnimalStart?.neurons ?? null;
+
+  useEffect(() => {
+    const canvas = neuronCanvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+
+    if (!selectedNeurons || selectedNeurons.length === 0) {
+      canvas.width = 20;
+      canvas.height = 20;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
+
+    const hiddenRows = selectedNeurons.slice(0, -1);
+    const outputRow = selectedNeurons[selectedNeurons.length - 1] ?? [];
+    const rows = hiddenRows.length;
+    const cols = hiddenRows.reduce((max, row) => Math.max(max, row.length), 0);
+    const maxConstants = selectedNeurons.reduce((max, row) => {
+      return Math.max(
+        max,
+        row.reduce((innerMax, neuron) => Math.max(innerMax, neuron.constants.length), 0)
+      );
+    }, 0);
+
+    const cellWidth = 20;
+    const cellHeight = 80;
+    const columnGap = 12;
+    const rowGap = 12;
+    const padding = 14;
+    const outputBlockWidth = 78;
+    const outputLabelHeight = 18;
+    const outputRowWidth =
+      outputRow.length > 0
+        ? outputRow.length * outputBlockWidth + (outputRow.length - 1) * columnGap
+        : 0;
+    const hiddenGridWidth = cols > 0 ? cols * cellWidth + (cols - 1) * columnGap : 0;
+    const hiddenGridHeight = rows > 0 ? rows * cellHeight + (rows - 1) * rowGap : 0;
+    const outputRowHeight =
+      outputRow.length > 0 ? cellHeight + outputLabelHeight + rowGap : 0;
+    const contentWidth = Math.max(hiddenGridWidth, outputRowWidth, cellWidth);
+
+    canvas.width = padding * 2 + contentWidth;
+    canvas.height = padding * 2 + hiddenGridHeight + outputRowHeight;
+
+    ctx.fillStyle = '#07141d';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '12px "Trebuchet MS", "Segoe UI", sans-serif';
+
+    hiddenRows.forEach((row, rowIndex) => {
+      row.forEach((neuron, columnIndex) => {
+        const cellX = padding + columnIndex * (cellWidth + columnGap);
+        const cellY = padding + rowIndex * (cellHeight + rowGap);
+
+        ctx.strokeStyle = '#2f6b62';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(cellX, cellY, cellWidth, cellHeight);
+
+        const values = neuron.constants;
+        if (values.length === 0) {
+          return;
+        }
+
+        const ySpacing = (cellHeight - 16) / (values.length + 1);
+        values.forEach((value, valueIndex) => {
+          const y = cellY + 8 + (valueIndex + 1) * ySpacing;
+          ctx.strokeStyle = constantToColor(value);
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(cellX + 3, y);
+          ctx.lineTo(cellX + cellWidth - 3, y);
+          ctx.stroke();
+        });
+      });
+    });
+
+    if (outputRow.length > 0) {
+      const outputOffsetX = padding + Math.max(0, (contentWidth - outputRowWidth) / 2);
+      const outputY = padding + hiddenGridHeight + (hiddenGridHeight > 0 ? rowGap : 0);
+
+      outputRow.forEach((neuron, outputIndex) => {
+        const blockX = outputOffsetX + outputIndex * (outputBlockWidth + columnGap);
+        const cellX = blockX + (outputBlockWidth - cellWidth) / 2;
+
+        ctx.strokeStyle = '#2f6b62';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(cellX, outputY, cellWidth, cellHeight);
+
+        const values = neuron.constants;
+        if (values.length > 0) {
+          const ySpacing = (cellHeight - 16) / (values.length + 1);
+          values.forEach((value, valueIndex) => {
+            const y = outputY + 8 + (valueIndex + 1) * ySpacing;
+            ctx.strokeStyle = constantToColor(value);
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(cellX + 3, y);
+            ctx.lineTo(cellX + cellWidth - 3, y);
+            ctx.stroke();
+          });
+        }
+
+        ctx.fillStyle = '#ddf8f1';
+        ctx.fillText(
+          OUTPUT_LABELS[outputIndex] ?? `Output ${outputIndex}`,
+          blockX + outputBlockWidth / 2,
+          outputY + cellHeight + outputLabelHeight / 2 + 2
+        );
+      });
+    }
+  }, [selectedNeurons]);
 
   const loadSimulation = async () => {
     setLoading(true);
@@ -583,6 +733,23 @@ export default function App() {
             </dl>
           )}
         </aside>
+      </section>
+
+      <section className="neurons-panel">
+        <h2>Neurons</h2>
+        {!selectedAnimal || !selectedNeurons || selectedNeurons.length === 0 ? (
+          <p>Select an animal to visualize its neuron constants.</p>
+        ) : (
+          <>
+            <p>
+              Grid: {selectedNeurons.reduce((max, row) => Math.max(max, row.length), 0)} columns x{' '}
+              {selectedNeurons.length} rows. Constant colors: red (-1) to blue (+1).
+            </p>
+            <div className="neurons-scroll">
+              <canvas ref={neuronCanvasRef} className="neurons-canvas" aria-label="Neuron visualization" />
+            </div>
+          </>
+        )}
       </section>
     </main>
   );

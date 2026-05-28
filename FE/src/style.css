@@ -42,7 +42,8 @@ body {
 }
 
 .controls,
-.stats {
+.stats,
+.neurons-panel {
   background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: 14px;
@@ -125,6 +126,33 @@ select {
 
 .stats {
   padding: 14px;
+}
+
+.neurons-panel {
+  padding: 14px;
+}
+
+.neurons-panel h2 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.neurons-panel p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.neurons-scroll {
+  margin-top: 10px;
+  overflow: auto;
+  border: 1px solid #3e857a;
+  border-radius: 8px;
+  background: #07141d;
+}
+
+.neurons-canvas {
+  display: block;
+  max-width: none;
 }
 
 .stats h2 {
