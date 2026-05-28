@@ -52,8 +52,23 @@ const ACTION_NAMES: Record<Action, string> = {
   None: 'none'
 };
 
-const PLAY_MS_PER_STEP = 250;
+const DEFAULT_SPEED = 4;
+const MIN_SPEED = 2;
 const CELL_SIZE = 14;
+
+const getSpeedIncrement = (speedAbs: number): number => {
+  if (speedAbs >= 1000) {
+    return 100;
+  }
+  if (speedAbs >= 100) {
+    return 10;
+  }
+  if (speedAbs >= 12) {
+    return 4;
+  }
+
+  return 2;
+};
 
 const getTickMax = (generation: Generation): number => {
   const carnivoreTicks = generation.carnivore_records.map((records) => records.length);
@@ -224,6 +239,7 @@ export default function App() {
   const [generationIndex, setGenerationIndex] = useState(0);
   const [tick, setTick] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(DEFAULT_SPEED);
   const [selectedAnimal, setSelectedAnimal] = useState<SelectedAnimal | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -251,23 +267,42 @@ export default function App() {
       return;
     }
 
+    const speedAbs = Math.max(Math.abs(playbackSpeed), MIN_SPEED);
+    const direction = playbackSpeed < 0 ? -1 : 1;
+    const intervalMs = 1000 / speedAbs;
+
     const handle = window.setInterval(() => {
       setTick((previous) => {
-        if (previous >= tickMax) {
+        const next = previous + direction;
+
+        if (next > tickMax) {
           return previous;
         }
-        return previous + 1;
+        if (next < 0) {
+          return previous;
+        }
+
+        return next;
       });
-    }, PLAY_MS_PER_STEP);
+    }, intervalMs);
 
     return () => window.clearInterval(handle);
-  }, [playing, tickMax]);
+  }, [playbackSpeed, playing, tickMax]);
 
   useEffect(() => {
-    if (tick >= tickMax) {
+    if (!playing) {
+      return;
+    }
+
+    if (playbackSpeed > 0 && tick >= tickMax) {
+      setPlaying(false);
+      return;
+    }
+
+    if (playbackSpeed < 0 && tick <= 0) {
       setPlaying(false);
     }
-  }, [tick, tickMax]);
+  }, [playbackSpeed, playing, tick, tickMax]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -369,6 +404,7 @@ export default function App() {
       setGenerationIndex(0);
       setTick(0);
       setPlaying(false);
+      setPlaybackSpeed(DEFAULT_SPEED);
       setSelectedAnimal(null);
     } catch (loadError) {
       const message = loadError instanceof Error ? loadError.message : 'Unknown error';
@@ -392,11 +428,35 @@ export default function App() {
       return;
     }
 
-    if (tick >= tickMax) {
+    if (playbackSpeed > 0 && tick >= tickMax) {
       setTick(0);
     }
 
+    if (playbackSpeed < 0 && tick <= 0) {
+      setTick(tickMax);
+    }
+
     setPlaying((current) => !current);
+  };
+
+  const increaseSpeedForward = () => {
+    setPlaybackSpeed((current) => {
+      if (current < 0) {
+        return MIN_SPEED;
+      }
+
+      return current + getSpeedIncrement(Math.abs(current));
+    });
+  };
+
+  const increaseSpeedBackward = () => {
+    setPlaybackSpeed((current) => {
+      if (current > 0) {
+        return -MIN_SPEED;
+      }
+
+      return current - getSpeedIncrement(Math.abs(current));
+    });
   };
 
   const onCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -425,14 +485,30 @@ export default function App() {
           <button onClick={loadSimulation} disabled={loading}>
             {loading ? 'Loading...' : 'Load Simulation'}
           </button>
+          <button
+            onClick={increaseSpeedBackward}
+            disabled={!generation}
+            aria-label="Increase speed backwards"
+            title="Increase speed backwards"
+          >
+            ⏪
+          </button>
           <button onClick={stepBack} disabled={!generation || tick === 0}>
-            Step Back
+            ⏮
           </button>
           <button onClick={togglePlay} disabled={!generation}>
-            {playing ? 'Pause' : 'Play'}
+            {playing ? '⏸' : '⏵'}
           </button>
           <button onClick={stepForward} disabled={!generation || tick >= tickMax}>
-            Step Forward
+            ⏭
+          </button>
+          <button
+            onClick={increaseSpeedForward}
+            disabled={!generation}
+            aria-label="Increase speed forward"
+            title="Increase speed forward"
+          >
+            ⏩
           </button>
           <select
             value={generationIndex}
@@ -453,7 +529,7 @@ export default function App() {
         </div>
 
         <p className="status">
-          Tick: {tick} / {tickMax} | Speed: 4 ticks/sec
+          Tick: {tick} / {tickMax} | Speed: {playbackSpeed} ticks/sec
         </p>
         {error && <p className="error">{error}</p>}
       </section>
