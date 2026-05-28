@@ -1,14 +1,16 @@
 in progress:
 
 done:
+
+to do:
+
+v 1.01
 * Refactor animal and map vectors
 * Add energy to entities, they use it to take action and die when it runs out
 * Add conditions when generation is over
 * Create new entities from the neurons of the old ones
 * Add simulation run conditions that run simulation until fulfilled
 * Add "record simulation" that records entities at start, and then a list of coordinates for each animal
-
-to do:
 * Add rest api to start simulation
 * Add rest api to get simulation record
 * Create vibe coded web project that lets you start simulation, get the result, and display it
