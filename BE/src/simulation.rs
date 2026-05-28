@@ -1,21 +1,18 @@
-pub mod map;
-pub mod generation;
-pub mod mutation;
+pub mod config;
+mod map;
 mod record;
 
 use map::Map;
-use map::MapConfig;
-use generation::GenerationConfig;
-use mutation::MutationConfig;
+use config::*;
 
 pub struct Simulation {
     map: Map
 }
 
 impl Simulation {
-    pub fn new(map_config: MapConfig, generation_config: GenerationConfig, mutation_config: MutationConfig) -> Simulation {
+    pub fn new(config: SimulationConfig) -> Simulation {
         Simulation {
-            map: Map::new(map_config, generation_config.clone(), mutation_config.clone()),
+            map: Map::new(config.map_config, config.generation_config.clone(), config.mutation_config.clone()),
         }
     }
 

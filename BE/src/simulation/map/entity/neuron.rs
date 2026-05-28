@@ -1,7 +1,7 @@
 use rand::RngExt;
 use serde::Serialize;
-use crate::simulation::mutation::MutationConfig;
 use crate::json_helper::{serialize_f64_2dp, serialize_vec_f64_2dp};
+use crate::simulation::config::MutationConfig;
 
 #[derive(Clone)]
 #[derive(Serialize)]

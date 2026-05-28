@@ -1,6 +1,6 @@
 use serde::Serialize;
+use crate::simulation::config::MutationConfig;
 use super::{Action, animal::Animal, neuron::Neuron };
-use crate::simulation::mutation::MutationConfig;
 
 #[derive(Clone)]
 #[derive(Serialize)]

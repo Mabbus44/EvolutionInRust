@@ -31,16 +31,4 @@ pub enum Action {
     None
 }
 
-impl Action {
-    pub fn to_int(&self) -> usize {
-        match self {
-            Action::WalkLeft => 0,
-            Action::WalkRight => 1,
-            Action::WalkUp => 2,
-            Action::WalkDown => 3,
-            Action::Eat => 4,
-            Action::None => 5,
-        }
-    }
-}
 const ACTION_COUNT: usize = 6;

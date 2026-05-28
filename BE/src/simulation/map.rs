@@ -6,9 +6,8 @@ use entity::carnivore::Carnivore;
 use entity::herbivore::Herbivore;
 use entity::{Action, EntityRef, animal::Animal};
 use std::{cmp, mem};
-use crate::simulation::record::{AnimalRecord, GenerationRecording};
-use super::mutation::MutationConfig;
-use super::generation::GenerationConfig;
+use super::record::{AnimalRecord, GenerationRecording};
+use super::config::*;
 
 pub struct Map {
     animals: Vec<Vec<EntityRef>>,
@@ -39,20 +38,6 @@ pub struct Map {
     complete_record: Vec<GenerationRecording>,
     generation_config: GenerationConfig,
     mutation_config: MutationConfig
-}
-
-pub struct MapConfig {
-    pub carnivore_count: u32,
-    pub herbivore_count: u32,
-    pub grass_count: u32,
-    pub neuron_count: usize,
-    pub neuron_layer_count: usize,
-    pub sense_radius: usize,
-    pub carnivore_max_energy: u32,
-    pub herbivore_max_energy: u32,
-    pub size_x: usize,
-    pub size_y: usize,
-    pub record: bool,
 }
 
 impl Map {
