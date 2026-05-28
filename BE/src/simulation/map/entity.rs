@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 pub mod herbivore;
 pub mod carnivore;
 pub mod animal;
@@ -19,6 +21,7 @@ pub enum EntityType {
 }
 
 #[derive(Clone)]
+#[derive(Serialize)]
 pub enum Action {
     WalkLeft,
     WalkRight,

@@ -1,4 +1,5 @@
 mod simulation;
+mod json_helper;
 
 use axum::extract::Json;
 use axum::http::{header, StatusCode};
@@ -62,6 +63,7 @@ struct HealthResponse {
 impl Default for SimulationRequest {
     fn default() -> Self {
         Self {
+            // Standard
             map: MapRequest {
                 carnivore_count: 5,
                 herbivore_count: 15,
@@ -85,6 +87,30 @@ impl Default for SimulationRequest {
                 best_herbivore_count: 2,
                 all_entities_must_be_under_min_levels: true,
             },
+            // Minimal
+            /*map: MapRequest {
+                carnivore_count: 2,
+                herbivore_count: 2,
+                grass_count: 3,
+                neuron_count: 3,
+                neuron_layer_count: 2,
+                sense_radius: 1,
+                carnivore_max_energy: 100,
+                herbivore_max_energy: 50,
+                size_x: 200,
+                size_y: 100,
+                record: true,
+            },
+            generation: GenerationRequest {
+                max_generation_count: 1,
+                max_ticks_per_generation: 10,
+                carnivore_count: -1,
+                herbivore_count: -1,
+                grass_count: -1,
+                best_carnivore_count: 2,
+                best_herbivore_count: 2,
+                all_entities_must_be_under_min_levels: true,
+            },*/
             mutation: MutationRequest {
                 mutation_chance: 0.01,
                 max_mutation_amount: 0.3,

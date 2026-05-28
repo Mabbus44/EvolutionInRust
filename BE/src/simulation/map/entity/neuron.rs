@@ -1,9 +1,14 @@
-use rand::Rng;
+use rand::RngExt;
+use serde::Serialize;
 use crate::simulation::mutation::MutationConfig;
+use crate::json_helper::{serialize_f64_2dp, serialize_vec_f64_2dp};
 
 #[derive(Clone)]
+#[derive(Serialize)]
 pub struct Neuron {
+    #[serde(serialize_with = "serialize_vec_f64_2dp")]
     constants: Vec<f64>,
+    #[serde(serialize_with = "serialize_f64_2dp")]
     output: f64
 }
 
@@ -25,7 +30,7 @@ impl Neuron {
 
     pub fn mutate(&mut self, mutation_config: &MutationConfig) {
         for constant in &mut self.constants {
-            if rand::thread_rng().gen_bool(mutation_config.mutation_chance) {
+            if rand::rng().random_bool(mutation_config.mutation_chance) {
                 let mut min: f64 = *constant - mutation_config.max_mutation_amount;
                 let mut max: f64 = *constant + mutation_config.max_mutation_amount;
                 if min < -1.0 {
@@ -34,22 +39,8 @@ impl Neuron {
                 if max > -1.0 {
                     max = 1.0;
                 }
-                *constant = rand::thread_rng().gen_range(min..max)
+                *constant = rand::rng().random_range(min..max)
             }
         }
-    }
-
-    pub fn to_json(&self) -> String {
-        let mut ret: String = "{\"constants\":[".to_string();
-        let mut first = true;
-        for row in &self.constants {
-            if !first {
-                ret.push_str(",");
-            }
-            first = false;
-            ret.push_str(&format!("{:.2}", row));
-        }
-        ret.push_str(&format!("],\"output\":{:.2}}}",self.output));
-        ret
     }
 }

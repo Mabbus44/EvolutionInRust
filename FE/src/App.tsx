@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-type Action = 0 | 1 | 2 | 3 | 4 | 5;
-type TickRecord = [energy: number, action: Action, x: number, y: number];
+type Action = 'WalkLeft' | 'WalkRight' | 'WalkUp' | 'WalkDown' | 'Eat' | 'None';
+type TickRecord = {
+  action: Action;
+  energy: number;
+  pos_x: number;
+  pos_y: number;
+};
 type GrassDeath = [tick: number, x: number, y: number];
 
 type AnimalStart = {
@@ -9,6 +14,7 @@ type AnimalStart = {
   action: Action;
   pos_x: number;
   pos_y: number;
+  neurons?: unknown;
 };
 
 type Generation = {
@@ -38,12 +44,12 @@ type AnimalHit = {
 };
 
 const ACTION_NAMES: Record<Action, string> = {
-  0: 'walk left',
-  1: 'walk right',
-  2: 'walk up',
-  3: 'walk down',
-  4: 'eat',
-  5: 'none'
+  WalkLeft: 'walk left',
+  WalkRight: 'walk right',
+  WalkUp: 'walk up',
+  WalkDown: 'walk down',
+  Eat: 'eat',
+  None: 'none'
 };
 
 const PLAY_MS_PER_STEP = 250;
@@ -95,13 +101,13 @@ const getGridBounds = (generation: Generation): { width: number; height: number 
 
   generation.carnivore_records.forEach((records) => {
     records.forEach((record) => {
-      check(record[2], record[3]);
+      check(record.pos_x, record.pos_y);
     });
   });
 
   generation.herbivore_records.forEach((records) => {
     records.forEach((record) => {
-      check(record[2], record[3]);
+      check(record.pos_x, record.pos_y);
     });
   });
 
@@ -143,8 +149,8 @@ const findNearestAnimalAtTick = (
       return;
     }
 
-    const dx = Math.abs(record[2] - x);
-    const dy = Math.abs(record[3] - y);
+    const dx = Math.abs(record.pos_x - x);
+    const dy = Math.abs(record.pos_y - y);
     const distance = Math.max(dx, dy);
     if (distance > 1) {
       return;
@@ -161,8 +167,8 @@ const findNearestAnimalAtTick = (
       return;
     }
 
-    const dx = Math.abs(record[2] - x);
-    const dy = Math.abs(record[3] - y);
+    const dx = Math.abs(record.pos_x - x);
+    const dy = Math.abs(record.pos_y - y);
     const distance = Math.max(dx, dy);
     if (distance > 1) {
       return;
@@ -310,8 +316,8 @@ export default function App() {
 
       drawPixel(
         ctx,
-        record[2],
-        record[3],
+        record.pos_x,
+        record.pos_y,
         '#eb3f47',
         Boolean(isSelected),
         gridSize.width,
@@ -330,8 +336,8 @@ export default function App() {
 
       drawPixel(
         ctx,
-        record[2],
-        record[3],
+        record.pos_x,
+        record.pos_y,
         '#4c74ff',
         Boolean(isSelected),
         gridSize.width,
@@ -484,19 +490,19 @@ export default function App() {
               </div>
               <div>
                 <dt>Energy</dt>
-                <dd>{selectedRecord[0]}</dd>
+                <dd>{selectedRecord.energy}</dd>
               </div>
               <div>
                 <dt>Action</dt>
-                <dd>{ACTION_NAMES[selectedRecord[1]]}</dd>
+                <dd>{ACTION_NAMES[selectedRecord.action]}</dd>
               </div>
               <div>
                 <dt>X</dt>
-                <dd>{selectedRecord[2]}</dd>
+                <dd>{selectedRecord.pos_x}</dd>
               </div>
               <div>
                 <dt>Y</dt>
-                <dd>{selectedRecord[3]}</dd>
+                <dd>{selectedRecord.pos_y}</dd>
               </div>
             </dl>
           )}

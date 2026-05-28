@@ -1,9 +1,10 @@
-use rand::Rng;
+use rand::RngExt;
 use super::{Action, ACTION_COUNT};
 use super::neuron::Neuron;
 
 pub trait Animal {
     fn get_neurons_ref_mut(&mut self) -> &mut Vec<Vec<Neuron>>;
+    #[allow(dead_code)]
     fn get_neurons_ref_immutable(& self) -> &Vec<Vec<Neuron>>;
     fn get_action_ref_mut(&mut self) -> &mut Action;
     fn get_action_ref_immutable(&self) -> &Action;
@@ -12,30 +13,6 @@ pub trait Animal {
     fn add_to_energy(&mut self, energy: i32);
     fn set_position(&mut self, x: usize, y: usize);
     fn get_position(&self) -> (usize, usize);
-    fn to_json(&self) -> String {
-        /*let mut ret: String = "{\"neurons\":[".to_string();
-        let mut first_row = true;
-        for row in self.get_neurons_ref_immutable() {
-            if !first_row {
-                ret.push_str(",");
-            }
-            first_row = false;
-            let mut first_neuron = true;
-            ret.push_str("[");
-            for neuron in row {
-                if !first_neuron {
-                    ret.push_str(",");
-                }
-                first_neuron = false;
-                ret.push_str(&neuron.to_json());
-            }
-            ret.push_str("]");
-        }*/
-        let pos = self.get_position();
-        format!("{{\"energy\":{},\"action\":{},\"pos_x\":{},\"pos_y\":{}}}",self.get_energy(), self.get_action_ref_immutable().to_int(), pos.0, pos.1)
-//        ret.push_str(&format!("],\"energy\":{},\"action\":{},\"pos_x\":{},\"pos_y\":{}}}",self.get_energy(), self.get_action_ref_immutable().to_int(), pos.0, pos.1));
-//        ret
-    }
     fn take_other_action(&mut self){
         match self.get_action_ref_immutable() {
             Action::WalkLeft | Action::WalkRight  | Action::WalkUp | Action::WalkDown => {
@@ -70,7 +47,7 @@ pub trait Animal {
         for _ in 0..neuron_count {
             let mut constants: Vec<f64> = Vec::with_capacity(input_count);
             for _ in 0..input_count {
-                constants.push(rand::thread_rng().gen_range(-1.0..1.0));
+                constants.push(rand::rng().random_range(-1.0..1.0));
             }
             ret.push(Neuron::new (constants));
         }

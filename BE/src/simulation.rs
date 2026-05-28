@@ -42,16 +42,9 @@ impl Simulation {
     }
 
     pub fn get_recording_as_json(&self) -> String {
-        let mut ret: String = "{\"generations\":[".to_string();
-        let mut first = true;
-        for generation in &self.map.get_recording() {
-            if !first {
-                ret.push_str(",");
-            }
-            first = false;
-            ret.push_str(&generation.to_json());
-        }
-        ret.push_str("]}");
+        let ret = serde_json::json!({
+            "generations": self.map.get_recording()
+        }).to_string();
         ret
     }
 }

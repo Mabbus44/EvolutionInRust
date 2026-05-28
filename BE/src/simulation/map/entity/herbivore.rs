@@ -1,8 +1,10 @@
+use serde::Serialize;
 use crate::simulation::mutation::MutationConfig;
 use super::neuron::Neuron;
 use super::{Action, animal::Animal};
 
 #[derive(Clone)]
+#[derive(Serialize)]
 pub struct Herbivore {
     neurons: Vec<Vec<Neuron>>,
     energy: i32,
