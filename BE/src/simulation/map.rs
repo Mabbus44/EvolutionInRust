@@ -1,10 +1,12 @@
 pub mod entity;
+mod sensing;
 
 use rand::RngExt;
 use entity::EntityType;
 use entity::carnivore::Carnivore;
 use entity::herbivore::Herbivore;
 use entity::{Action, EntityRef, animal::Animal};
+use sensing::*;
 use std::{cmp, mem};
 use super::record::GenerationRecording;
 use super::config::*;
@@ -245,7 +247,7 @@ impl Map {
                 continue;
             }
             let (x, y) = self.carnivores[i].as_ref().unwrap().get_position();
-            let input = self.generate_input(x as i32, y as i32);
+            let input = generate_input(&self.animals, self.sense_radius, x as i32, y as i32);
             self.carnivores[i].as_mut().unwrap().calculate_action(input);
         }
         for i in 0..self.herbivores.len()  {
@@ -253,7 +255,7 @@ impl Map {
                 continue;
             }
             let (x, y) = self.herbivores[i].as_ref().unwrap().get_position();
-            let input = self.generate_input(x as i32, y as i32);
+            let input = generate_input(&self.animals, self.sense_radius, x as i32, y as i32);
             self.herbivores[i].as_mut().unwrap().calculate_action(input);
         }
     }
@@ -431,56 +433,6 @@ impl Map {
             EntityType::Grass => {panic!("Invalid EntityType Grass in kill_animal_by_id")}
             EntityType::None => {panic!("Invalid EntityType None in kill_animal_by_id")}
         }
-    }
-
-    pub fn generate_input(&self, x_center:i32, y_center:i32) -> Vec<f64> {
-        let side = self.sense_radius * 2 + 1;
-        let mut ret: Vec<f64> = Vec::with_capacity((side * side - 1) * 4 - 4);
-        ret.append(&mut self.generate_partial_input(x_center, y_center, EntityType::None));
-        ret.append(&mut self.generate_partial_input(x_center, y_center, EntityType::Carnivore));
-        ret.append(&mut self.generate_partial_input(x_center, y_center, EntityType::Herbivore));
-        ret.append(&mut self.generate_partial_input(x_center, y_center, EntityType::Grass));
-        ret
-    }
-
-    pub fn generate_partial_input(&self, x_center:i32, y_center:i32, input_type: EntityType) -> Vec<f64>{
-        let side = self.sense_radius * 2 + 1;
-        let mut ret: Vec<f64> = Vec::with_capacity(side * side - 1);
-        for y in y_center - self.sense_radius as i32..y_center + 1 + self.sense_radius as i32 {
-            for x in x_center - self.sense_radius as i32..x_center + 1 + self.sense_radius as i32 {
-                if x == x_center && y == y_center {
-                    continue;
-                }
-                let mut input_val :f64 = 0.0;
-                if x < 0 || y < 0 || x >= self.size_x as i32 || y >= self.size_y as i32 {
-                    if matches!(input_type, EntityType::None) {
-                        input_val = 1.0;
-                    }
-                }
-                else {
-                    match input_type {
-                        EntityType::Herbivore => {
-                            if matches!(self.animals[y as usize][x as usize], EntityRef::Herbivore(_)) {
-                                input_val = 1.0;
-                            }
-                        }
-                        EntityType::Carnivore => {
-                            if matches!(self.animals[y as usize][x as usize], EntityRef::Carnivore(_)) {
-                                input_val = 1.0;
-                            }
-                        }
-                        EntityType::Grass => {
-                            if matches!(self.plants[y as usize][x as usize], EntityRef::Grass) {
-                                input_val = 1.0;
-                            }
-                        }
-                        EntityType::None => {}
-                    }
-                }
-                ret.push(input_val);
-            }
-        }
-        ret
     }
 
     pub fn to_string(&self) -> String {
