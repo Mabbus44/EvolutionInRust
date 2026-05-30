@@ -6,7 +6,7 @@ use entity::carnivore::Carnivore;
 use entity::herbivore::Herbivore;
 use entity::{Action, EntityRef, animal::Animal};
 use std::{cmp, mem};
-use super::record::{AnimalRecord, GenerationRecording};
+use super::record::GenerationRecording;
 use super::config::*;
 
 pub struct Map {
@@ -68,7 +68,7 @@ impl Map {
             record: map_config.record,
             generation_config,
             mutation_config,
-            // Carnivore/Herbivore/Plant/Wall each has a input_side x input_side square of inputs, the centers are not included since it is occupied by the animal itself
+            // Carnivore/Herbivore/Plant/Wall each has an input_side x input_side square of inputs, the centers are not included since it is occupied by the animal itself
             input_count: ((map_config.sense_radius * 2 + 1) * (map_config.sense_radius * 2 + 1) - 1) * 4,
             tick: 0,
             recording: None,
@@ -77,7 +77,7 @@ impl Map {
         map.generate_entities(map.herbivore_start_count, EntityType::Herbivore, false);
         map.generate_entities(map.grass_start_count, EntityType::Grass, false);
         if map.record {
-            map.init_current_generation_recording();
+            map.recording = Some(GenerationRecording::new(&map));
         }
         map
     }
@@ -101,34 +101,24 @@ impl Map {
         self.best_carnivores = Vec::new();
         self.best_herbivores = Vec::new();
         if self.record {
-            self.init_current_generation_recording();
+            self.recording = Some(GenerationRecording::new(self));
         }
     }
 
-    fn init_current_generation_recording(&mut self){
-        self.recording = Some(
-            GenerationRecording::new(
-                self.carnivores.len(),
-                self.herbivores.len(),
-                self.grass_count as usize,
-                self.carnivores.clone(),
-                self.herbivores.clone()
-            )
-        );
-        let mut y = 0;
-        for row in &self.plants {
-            let mut x = 0;
-            for plant in row {
-                match plant {
-                    EntityRef::Grass => {
-                        self.recording.as_mut().unwrap().grass_at_start.push((x, y));
-                    }
-                    _ => {}
-                }
-                x += 1;
-            }
-            y += 1;
-        }
+    pub fn get_carnivores(&self) -> &Vec::<Option<Carnivore>> {
+        &self.carnivores
+    }
+
+    pub fn get_herbivores(&self) -> &Vec::<Option<Herbivore>> {
+        &self.herbivores
+    }
+
+    pub fn get_grass_count(&self) -> u32 {
+        self.grass_count
+    }
+
+    pub fn get_plants(&self) -> &Vec<Vec<EntityRef>> {
+        &self.plants
     }
 
     fn move_remaining_animals_to_best(&mut self) {
@@ -239,49 +229,11 @@ impl Map {
     pub fn tick(&mut self) {
         self.calculate_actions();
         if self.record {
-            self.record_tick();
+            self.recording.as_mut().unwrap().record_tick(&self.carnivores, &self.herbivores);
         }
         self.take_eat_actions();
         self.take_other_actions();
         self.tick += 1;
-    }
-
-    pub fn record_tick(&mut self) {
-        let mut temp_animal_record: Option<AnimalRecord> = None;
-        for id in 0..self.carnivores.len() {
-            match &self.carnivores[id] {
-                Some(carnivore) => {
-                    let pos = carnivore.get_position();
-                    temp_animal_record = Some(AnimalRecord {
-                        energy: carnivore.get_energy(),
-                        action: carnivore.get_action_ref_immutable().clone(),
-                        pos_x: pos.0,
-                        pos_y: pos.1,
-                    });
-                }
-                None => {}
-            }
-            if let Some(record) = temp_animal_record.take() {
-                self.recording.as_mut().unwrap().carnivore_records[id].push(record);
-            }
-        }
-        for id in 0..self.herbivores.len() {
-            match &self.herbivores[id] {
-                Some(herbivore) => {
-                    let pos = herbivore.get_position();
-                    temp_animal_record = Some(AnimalRecord {
-                        energy: herbivore.get_energy(),
-                        action: herbivore.get_action_ref_immutable().clone(),
-                        pos_x: pos.0,
-                        pos_y: pos.1,
-                    });
-                }
-                None => {}
-            }
-            if let Some(record) = temp_animal_record.take() {
-                self.recording.as_mut().unwrap().herbivore_records[id].push(record);
-            }
-        }
     }
 
     #[allow(dead_code)]
@@ -358,7 +310,7 @@ impl Map {
                 }
                 if matches!(entity_type, EntityType::Grass) && matches!(self.plants[y][x], EntityRef::Grass) {
                     if self.record && self.recording.is_some() {
-                        self.recording.as_mut().unwrap().dead_grass.push((self.tick, x, y));
+                        self.recording.as_mut().unwrap().add_dead_grass(self.tick, x, y);
                     }
                     self.plants[y][x] = EntityRef::None;
                     self.grass_count -= 1;
