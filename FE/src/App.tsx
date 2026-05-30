@@ -35,6 +35,42 @@ type SimulationResponse = {
   generations: Generation[];
 };
 
+type MapConfig = {
+  carnivore_count: number;
+  herbivore_count: number;
+  grass_count: number;
+  neuron_count: number;
+  neuron_layer_count: number;
+  sense_radius: number;
+  carnivore_max_energy: number;
+  herbivore_max_energy: number;
+  size_x: number;
+  size_y: number;
+  record: boolean;
+};
+
+type GenerationConfig = {
+  max_generation_count: number;
+  max_ticks_per_generation: number;
+  carnivore_count: number;
+  herbivore_count: number;
+  grass_count: number;
+  best_carnivore_count: number;
+  best_herbivore_count: number;
+  all_entities_must_be_under_min_levels: boolean;
+};
+
+type MutationConfig = {
+  mutation_chance: number;
+  max_mutation_amount: number;
+};
+
+type SimulationConfig = {
+  map_config: MapConfig;
+  generation_config: GenerationConfig;
+  mutation_config: MutationConfig;
+};
+
 type Species = 'carnivore' | 'herbivore';
 
 type SelectedAnimal = {
@@ -58,6 +94,39 @@ const ACTION_NAMES: Record<Action, string> = {
 };
 
 const OUTPUT_LABELS = ['WalkLeft', 'WalkRight', 'WalkUp', 'WalkDown', 'Eat', 'None'];
+
+const SIMULATION_CONFIG_COOKIE = 'simulation_config';
+const SIMULATION_CONFIG_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 5;
+
+const DEFAULT_SIMULATION_CONFIG: SimulationConfig = {
+  map_config: {
+    carnivore_count: 5,
+    herbivore_count: 15,
+    grass_count: 100,
+    neuron_count: 10,
+    neuron_layer_count: 2,
+    sense_radius: 4,
+    carnivore_max_energy: 100,
+    herbivore_max_energy: 50,
+    size_x: 200,
+    size_y: 100,
+    record: true
+  },
+  generation_config: {
+    max_generation_count: 50,
+    max_ticks_per_generation: 1000,
+    carnivore_count: 2,
+    herbivore_count: 2,
+    grass_count: -1,
+    best_carnivore_count: 2,
+    best_herbivore_count: 2,
+    all_entities_must_be_under_min_levels: true
+  },
+  mutation_config: {
+    mutation_chance: 0.01,
+    max_mutation_amount: 0.3
+  }
+};
 
 const DEFAULT_SPEED = 4;
 const MIN_SPEED = 2;
@@ -87,6 +156,46 @@ const getSpeedIncrement = (speedAbs: number): number => {
   }
 
   return 2;
+};
+
+const cloneDefaultConfig = (): SimulationConfig => {
+  return JSON.parse(JSON.stringify(DEFAULT_SIMULATION_CONFIG)) as SimulationConfig;
+};
+
+const parseSimulationConfigCookie = (): SimulationConfig => {
+  const cookiePart = document.cookie
+    .split('; ')
+    .find((entry) => entry.startsWith(`${SIMULATION_CONFIG_COOKIE}=`));
+
+  if (!cookiePart) {
+    return cloneDefaultConfig();
+  }
+
+  const encodedValue = cookiePart.slice(`${SIMULATION_CONFIG_COOKIE}=`.length);
+
+  try {
+    const parsed = JSON.parse(decodeURIComponent(encodedValue)) as Partial<SimulationConfig>;
+    if (!parsed.map_config || !parsed.generation_config || !parsed.mutation_config) {
+      return cloneDefaultConfig();
+    }
+
+    return {
+      map_config: {
+        ...DEFAULT_SIMULATION_CONFIG.map_config,
+        ...parsed.map_config
+      },
+      generation_config: {
+        ...DEFAULT_SIMULATION_CONFIG.generation_config,
+        ...parsed.generation_config
+      },
+      mutation_config: {
+        ...DEFAULT_SIMULATION_CONFIG.mutation_config,
+        ...parsed.mutation_config
+      }
+    };
+  } catch {
+    return cloneDefaultConfig();
+  }
 };
 
 const getTickMax = (generation: Generation): number => {
@@ -255,6 +364,10 @@ const drawPixel = (
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const neuronCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [activeTab, setActiveTab] = useState<'simulation' | 'settings'>('simulation');
+  const [simulationConfig, setSimulationConfig] = useState<SimulationConfig>(() =>
+    parseSimulationConfigCookie()
+  );
   const [simulation, setSimulation] = useState<SimulationResponse | null>(null);
   const [generationIndex, setGenerationIndex] = useState(0);
   const [tick, setTick] = useState(0);
@@ -399,7 +512,7 @@ export default function App() {
         gridSize.height
       );
     });
-  }, [generation, gridSize.height, gridSize.width, selectedAnimal, tick]);
+  }, [activeTab, generation, gridSize.height, gridSize.width, selectedAnimal, tick]);
 
   const selectedRecord = useMemo(() => {
     if (!generation || !selectedAnimal) {
@@ -420,6 +533,11 @@ export default function App() {
   }, [generation, selectedAnimal]);
 
   const selectedNeurons = selectedAnimalStart?.neurons ?? null;
+
+  useEffect(() => {
+    const encodedValue = encodeURIComponent(JSON.stringify(simulationConfig));
+    document.cookie = `${SIMULATION_CONFIG_COOKIE}=${encodedValue}; path=/; max-age=${SIMULATION_CONFIG_COOKIE_MAX_AGE}; SameSite=Lax`;
+  }, [simulationConfig]);
 
   useEffect(() => {
     const canvas = neuronCanvasRef.current;
@@ -537,14 +655,20 @@ export default function App() {
         );
       });
     }
-  }, [selectedNeurons]);
+  }, [activeTab, selectedNeurons]);
 
   const loadSimulation = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch('http://127.0.0.1:3000/simulate');
+      const response = await fetch('http://127.0.0.1:3000/simulate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(simulationConfig)
+      });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
@@ -562,6 +686,36 @@ export default function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const updateMapConfig = (key: keyof MapConfig, value: number | boolean) => {
+    setSimulationConfig((current) => ({
+      ...current,
+      map_config: {
+        ...current.map_config,
+        [key]: value
+      }
+    }));
+  };
+
+  const updateGenerationConfig = (key: keyof GenerationConfig, value: number | boolean) => {
+    setSimulationConfig((current) => ({
+      ...current,
+      generation_config: {
+        ...current.generation_config,
+        [key]: value
+      }
+    }));
+  };
+
+  const updateMutationConfig = (key: keyof MutationConfig, value: number) => {
+    setSimulationConfig((current) => ({
+      ...current,
+      mutation_config: {
+        ...current.mutation_config,
+        [key]: value
+      }
+    }));
   };
 
   const stepBack = () => {
@@ -629,128 +783,359 @@ export default function App() {
 
   return (
     <main className="layout">
-      <section className="controls">
-        <h1>Evolution Simulation Viewer</h1>
-        <div className="toolbar">
-          <button onClick={loadSimulation} disabled={loading}>
-            {loading ? 'Loading...' : 'Load Simulation'}
-          </button>
-          <button
-            onClick={increaseSpeedBackward}
-            disabled={!generation}
-            aria-label="Increase speed backwards"
-            title="Increase speed backwards"
-          >
-            ⏪
-          </button>
-          <button onClick={stepBack} disabled={!generation || tick === 0}>
-            ⏮
-          </button>
-          <button onClick={togglePlay} disabled={!generation}>
-            {playing ? '⏸' : '⏵'}
-          </button>
-          <button onClick={stepForward} disabled={!generation || tick >= tickMax}>
-            ⏭
-          </button>
-          <button
-            onClick={increaseSpeedForward}
-            disabled={!generation}
-            aria-label="Increase speed forward"
-            title="Increase speed forward"
-          >
-            ⏩
-          </button>
-          <select
-            value={generationIndex}
-            disabled={!simulation || simulation.generations.length < 2}
-            onChange={(event) => {
-              setGenerationIndex(Number(event.target.value));
-              setTick(0);
-              setPlaying(false);
-              setSelectedAnimal(null);
-            }}
-          >
-            {(simulation?.generations ?? []).map((_, index) => (
-              <option key={index} value={index}>
-                Generation {index}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <p className="status">
-          Tick: {tick} / {tickMax} | Speed: {playbackSpeed} ticks/sec
-        </p>
-        {error && <p className="error">{error}</p>}
+      <section className="tabs">
+        <button
+          className={`tab-button ${activeTab === 'simulation' ? 'is-active' : ''}`}
+          onClick={() => setActiveTab('simulation')}
+        >
+          Simulation
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'settings' ? 'is-active' : ''}`}
+          onClick={() => setActiveTab('settings')}
+        >
+          Settings
+        </button>
       </section>
 
-      <section className="viewer">
-        <canvas
-          ref={canvasRef}
-          onClick={onCanvasClick}
-          className="grid"
-          aria-label="Simulation grid"
-        />
-
-        <aside className="stats">
-          <h2>Selected Animal</h2>
-          {!selectedAnimal || !generation || !selectedRecord ? (
-            <p>Click a red or blue pixel to inspect an animal.</p>
-          ) : (
-            <dl>
-              <div>
-                <dt>Generation</dt>
-                <dd>{generationIndex}</dd>
-              </div>
-              <div>
-                <dt>Species</dt>
-                <dd>{selectedAnimal.species}</dd>
-              </div>
-              <div>
-                <dt>Index</dt>
-                <dd>{selectedAnimal.index}</dd>
-              </div>
-              <div>
-                <dt>Tick</dt>
-                <dd>{tick}</dd>
-              </div>
-              <div>
-                <dt>Energy</dt>
-                <dd>{selectedRecord.energy}</dd>
-              </div>
-              <div>
-                <dt>Action</dt>
-                <dd>{ACTION_NAMES[selectedRecord.action]}</dd>
-              </div>
-              <div>
-                <dt>X</dt>
-                <dd>{selectedRecord.pos_x}</dd>
-              </div>
-              <div>
-                <dt>Y</dt>
-                <dd>{selectedRecord.pos_y}</dd>
-              </div>
-            </dl>
-          )}
-        </aside>
-      </section>
-
-      <section className="neurons-panel">
-        <h2>Neurons</h2>
-        {!selectedAnimal || !selectedNeurons || selectedNeurons.length === 0 ? (
-          <p>Select an animal to visualize its neuron constants.</p>
-        ) : (
-          <>
-            <p>
-              Grid: {selectedNeurons.reduce((max, row) => Math.max(max, row.length), 0)} columns x{' '}
-              {selectedNeurons.length} rows. Constant colors: red (-1) to blue (+1).
-            </p>
-            <div className="neurons-scroll">
-              <canvas ref={neuronCanvasRef} className="neurons-canvas" aria-label="Neuron visualization" />
+      {activeTab === 'simulation' ? (
+        <>
+          <section className="controls">
+            <h1>Evolution Simulation Viewer</h1>
+            <div className="toolbar">
+              <button onClick={loadSimulation} disabled={loading}>
+                {loading ? 'Loading...' : 'Load Simulation'}
+              </button>
+              <button
+                onClick={increaseSpeedBackward}
+                disabled={!generation}
+                aria-label="Increase speed backwards"
+                title="Increase speed backwards"
+              >
+                ⏪
+              </button>
+              <button onClick={stepBack} disabled={!generation || tick === 0}>
+                ⏮
+              </button>
+              <button onClick={togglePlay} disabled={!generation}>
+                {playing ? '⏸' : '⏵'}
+              </button>
+              <button onClick={stepForward} disabled={!generation || tick >= tickMax}>
+                ⏭
+              </button>
+              <button
+                onClick={increaseSpeedForward}
+                disabled={!generation}
+                aria-label="Increase speed forward"
+                title="Increase speed forward"
+              >
+                ⏩
+              </button>
+              <select
+                value={generationIndex}
+                disabled={!simulation || simulation.generations.length < 2}
+                onChange={(event) => {
+                  setGenerationIndex(Number(event.target.value));
+                  setTick(0);
+                  setPlaying(false);
+                  setSelectedAnimal(null);
+                }}
+              >
+                {(simulation?.generations ?? []).map((_, index) => (
+                  <option key={index} value={index}>
+                    Generation {index}
+                  </option>
+                ))}
+              </select>
             </div>
-          </>
-        )}
-      </section>
+
+            <p className="status">
+              Tick: {tick} / {tickMax} | Speed: {playbackSpeed} ticks/sec
+            </p>
+            {error && <p className="error">{error}</p>}
+          </section>
+
+          <section className="viewer">
+            <canvas
+              ref={canvasRef}
+              onClick={onCanvasClick}
+              className="grid"
+              aria-label="Simulation grid"
+            />
+
+            <aside className="stats">
+              <h2>Selected Animal</h2>
+              {!selectedAnimal || !generation || !selectedRecord ? (
+                <p>Click a red or blue pixel to inspect an animal.</p>
+              ) : (
+                <dl>
+                  <div>
+                    <dt>Generation</dt>
+                    <dd>{generationIndex}</dd>
+                  </div>
+                  <div>
+                    <dt>Species</dt>
+                    <dd>{selectedAnimal.species}</dd>
+                  </div>
+                  <div>
+                    <dt>Index</dt>
+                    <dd>{selectedAnimal.index}</dd>
+                  </div>
+                  <div>
+                    <dt>Tick</dt>
+                    <dd>{tick}</dd>
+                  </div>
+                  <div>
+                    <dt>Energy</dt>
+                    <dd>{selectedRecord.energy}</dd>
+                  </div>
+                  <div>
+                    <dt>Action</dt>
+                    <dd>{ACTION_NAMES[selectedRecord.action]}</dd>
+                  </div>
+                  <div>
+                    <dt>X</dt>
+                    <dd>{selectedRecord.pos_x}</dd>
+                  </div>
+                  <div>
+                    <dt>Y</dt>
+                    <dd>{selectedRecord.pos_y}</dd>
+                  </div>
+                </dl>
+              )}
+            </aside>
+          </section>
+
+          <section className="neurons-panel">
+            <h2>Neurons</h2>
+            {!selectedAnimal || !selectedNeurons || selectedNeurons.length === 0 ? (
+              <p>Select an animal to visualize its neuron constants.</p>
+            ) : (
+              <>
+                <p>
+                  Grid: {selectedNeurons.reduce((max, row) => Math.max(max, row.length), 0)} columns x{' '}
+                  {selectedNeurons.length} rows. Constant colors: red (-1) to blue (+1).
+                </p>
+                <div className="neurons-scroll">
+                  <canvas
+                    ref={neuronCanvasRef}
+                    className="neurons-canvas"
+                    aria-label="Neuron visualization"
+                  />
+                </div>
+              </>
+            )}
+          </section>
+        </>
+      ) : (
+        <section className="settings-panel">
+          <h1>Simulation Settings</h1>
+
+          <h2>Map Config</h2>
+          <div className="settings-grid">
+            <label>
+              Carnivore Count
+              <input
+                type="number"
+                value={simulationConfig.map_config.carnivore_count}
+                onChange={(event) => updateMapConfig('carnivore_count', Number(event.target.value))}
+              />
+            </label>
+            <label>
+              Herbivore Count
+              <input
+                type="number"
+                value={simulationConfig.map_config.herbivore_count}
+                onChange={(event) => updateMapConfig('herbivore_count', Number(event.target.value))}
+              />
+            </label>
+            <label>
+              Grass Count
+              <input
+                type="number"
+                value={simulationConfig.map_config.grass_count}
+                onChange={(event) => updateMapConfig('grass_count', Number(event.target.value))}
+              />
+            </label>
+            <label>
+              Neuron Count
+              <input
+                type="number"
+                value={simulationConfig.map_config.neuron_count}
+                onChange={(event) => updateMapConfig('neuron_count', Number(event.target.value))}
+              />
+            </label>
+            <label>
+              Neuron Layer Count
+              <input
+                type="number"
+                value={simulationConfig.map_config.neuron_layer_count}
+                onChange={(event) => updateMapConfig('neuron_layer_count', Number(event.target.value))}
+              />
+            </label>
+            <label>
+              Sense Radius
+              <input
+                type="number"
+                value={simulationConfig.map_config.sense_radius}
+                onChange={(event) => updateMapConfig('sense_radius', Number(event.target.value))}
+              />
+            </label>
+            <label>
+              Carnivore Max Energy
+              <input
+                type="number"
+                value={simulationConfig.map_config.carnivore_max_energy}
+                onChange={(event) =>
+                  updateMapConfig('carnivore_max_energy', Number(event.target.value))
+                }
+              />
+            </label>
+            <label>
+              Herbivore Max Energy
+              <input
+                type="number"
+                value={simulationConfig.map_config.herbivore_max_energy}
+                onChange={(event) =>
+                  updateMapConfig('herbivore_max_energy', Number(event.target.value))
+                }
+              />
+            </label>
+            <label>
+              Size X
+              <input
+                type="number"
+                value={simulationConfig.map_config.size_x}
+                onChange={(event) => updateMapConfig('size_x', Number(event.target.value))}
+              />
+            </label>
+            <label>
+              Size Y
+              <input
+                type="number"
+                value={simulationConfig.map_config.size_y}
+                onChange={(event) => updateMapConfig('size_y', Number(event.target.value))}
+              />
+            </label>
+            <label className="checkbox-field">
+              <input
+                type="checkbox"
+                checked={simulationConfig.map_config.record}
+                onChange={(event) => updateMapConfig('record', event.target.checked)}
+              />
+              Record
+            </label>
+          </div>
+
+          <h2>Generation Config</h2>
+          <div className="settings-grid">
+            <label>
+              Max Generation Count
+              <input
+                type="number"
+                value={simulationConfig.generation_config.max_generation_count}
+                onChange={(event) =>
+                  updateGenerationConfig('max_generation_count', Number(event.target.value))
+                }
+              />
+            </label>
+            <label>
+              Max Ticks Per Generation
+              <input
+                type="number"
+                value={simulationConfig.generation_config.max_ticks_per_generation}
+                onChange={(event) =>
+                  updateGenerationConfig('max_ticks_per_generation', Number(event.target.value))
+                }
+              />
+            </label>
+            <label>
+              Carnivore Count
+              <input
+                type="number"
+                value={simulationConfig.generation_config.carnivore_count}
+                onChange={(event) =>
+                  updateGenerationConfig('carnivore_count', Number(event.target.value))
+                }
+              />
+            </label>
+            <label>
+              Herbivore Count
+              <input
+                type="number"
+                value={simulationConfig.generation_config.herbivore_count}
+                onChange={(event) =>
+                  updateGenerationConfig('herbivore_count', Number(event.target.value))
+                }
+              />
+            </label>
+            <label>
+              Grass Count
+              <input
+                type="number"
+                value={simulationConfig.generation_config.grass_count}
+                onChange={(event) => updateGenerationConfig('grass_count', Number(event.target.value))}
+              />
+            </label>
+            <label>
+              Best Carnivore Count
+              <input
+                type="number"
+                value={simulationConfig.generation_config.best_carnivore_count}
+                onChange={(event) =>
+                  updateGenerationConfig('best_carnivore_count', Number(event.target.value))
+                }
+              />
+            </label>
+            <label>
+              Best Herbivore Count
+              <input
+                type="number"
+                value={simulationConfig.generation_config.best_herbivore_count}
+                onChange={(event) =>
+                  updateGenerationConfig('best_herbivore_count', Number(event.target.value))
+                }
+              />
+            </label>
+            <label className="checkbox-field">
+              <input
+                type="checkbox"
+                checked={simulationConfig.generation_config.all_entities_must_be_under_min_levels}
+                onChange={(event) =>
+                  updateGenerationConfig('all_entities_must_be_under_min_levels', event.target.checked)
+                }
+              />
+              All Entities Must Be Under Min Levels
+            </label>
+          </div>
+
+          <h2>Mutation Config</h2>
+          <div className="settings-grid">
+            <label>
+              Mutation Chance
+              <input
+                type="number"
+                step="0.001"
+                value={simulationConfig.mutation_config.mutation_chance}
+                onChange={(event) =>
+                  updateMutationConfig('mutation_chance', Number(event.target.value))
+                }
+              />
+            </label>
+            <label>
+              Max Mutation Amount
+              <input
+                type="number"
+                step="0.001"
+                value={simulationConfig.mutation_config.max_mutation_amount}
+                onChange={(event) =>
+                  updateMutationConfig('max_mutation_amount', Number(event.target.value))
+                }
+              />
+            </label>
+          </div>
+        </section>
+      )}
     </main>
   );
 }

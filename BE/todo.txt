@@ -1,8 +1,11 @@
 in progress:
 
 done:
+* Added simulation settings to FE
 
 to do:
+* Refactor program according to AI suggestions.
+* Bug: Check why animals prefer to go to the left.
 
 v 1.01
 * Refactor animal and map vectors
