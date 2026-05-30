@@ -31,9 +31,7 @@ type Generation = {
   dead_grass: GrassDeath[];
 };
 
-type SimulationResponse = {
-  generations: Generation[];
-};
+type SimulationResponse = Generation[];
 
 type MapConfig = {
   carnivore_count: number;
@@ -377,7 +375,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const generation = simulation?.generations[generationIndex] ?? null;
+  const generation = simulation?.[generationIndex] ?? null;
 
   const gridSize = useMemo(() => {
     if (!generation) {
@@ -674,7 +672,7 @@ export default function App() {
       }
 
       const json = (await response.json()) as SimulationResponse;
-      setSimulation(json);
+      setSimulation(Array.isArray(json) ? json : []);
       setGenerationIndex(0);
       setTick(0);
       setPlaying(false);
@@ -833,7 +831,7 @@ export default function App() {
               </button>
               <select
                 value={generationIndex}
-                disabled={!simulation || simulation.generations.length < 2}
+                disabled={!simulation || simulation.length < 2}
                 onChange={(event) => {
                   setGenerationIndex(Number(event.target.value));
                   setTick(0);
@@ -841,7 +839,7 @@ export default function App() {
                   setSelectedAnimal(null);
                 }}
               >
-                {(simulation?.generations ?? []).map((_, index) => (
+                {(simulation ?? []).map((_, index) => (
                   <option key={index} value={index}>
                     Generation {index}
                   </option>
