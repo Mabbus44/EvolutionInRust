@@ -4,44 +4,46 @@ mod record;
 
 use map::Map;
 use config::*;
+use crate::simulation::record::GenerationRecording;
 
 pub struct Simulation {
-    map: Map
+    map: Map,
+    config: SimulationConfig,
+    generation: usize,
+    recording: Vec<GenerationRecording>,
 }
 
 impl Simulation {
     pub fn new(config: SimulationConfig) -> Simulation {
         Simulation {
-            map: Map::new(config.map_config, config.generation_config.clone(), config.mutation_config.clone()),
+            map: Map::new(config.map_config.clone(), config.generation_config.clone(), config.mutation_config.clone()),
+            config,
+            generation: 0,
+            recording: Vec::new(),
         }
     }
 
     pub fn simulate(&mut self){
-        //print!("{}", self.to_string());
-        while !self.map.is_simulation_over() {
-            while !self.map.set_and_return_generation_over() {
+        while self.generation < self.config.generation_config.max_generation_count as usize {
+            if self.generation > 0 {
+                self.map.start_new_generation();
+            }
+            while !self.map.handle_and_return_generation_over() {
                 self.map.tick();
             }
-            /*println!();
-            println!();
-            println!("Generation over after {} steps", self.map.get_tick_count());
-            println!("********************************************************");
-            println!();
-            println!();
-            print!("{}", self.to_string());*/
-            self.map.start_new_generation();
+            if self.config.map_config.record {
+                self.recording.push(self.map.get_recording().unwrap());
+            }
+            self.generation += 1;
         }
-        //println!("************simulation over**************);");
     }
+
     #[allow(dead_code)]
     pub fn to_string(&self) -> String {
         self.map.to_string()
     }
 
     pub fn get_recording_as_json(&self) -> String {
-        let ret = serde_json::json!({
-            "generations": self.map.get_recording()
-        }).to_string();
-        ret
+        serde_json::json!(self.recording).to_string()
     }
 }

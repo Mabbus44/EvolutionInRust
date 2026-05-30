@@ -2,10 +2,22 @@ in progress:
 
 done:
 * Added simulation settings to FE
+* Bug: Check why animals prefer to go to the left.
 
 to do:
-* Refactor program according to AI suggestions.
-* Bug: Check why animals prefer to go to the left.
+* Refactor program according to AI suggestions to spread the code currently in map.rs
+* Only record every x generation (and a list of generations to start out with).
+* Save each simulation in a dict
+* Get list of generations and their status/settings
+* Patch settings for a existing generation
+* Continue running existing generation
+* Change /simulation endpoint to start a generation (run in background).
+* Add endpoint to get list of simulations
+* Add endpoint to get status of one generation
+* Add endpoint to patch settings of generation
+* Add endpoint to continue running existing generation
+* Update FE to use the new integrations
+
 
 v 1.01
 * Refactor animal and map vectors

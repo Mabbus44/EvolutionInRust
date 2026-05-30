@@ -1,5 +1,6 @@
 use serde::Deserialize;
 
+#[derive(Clone)]
 #[derive(Deserialize)]
 pub struct SimulationConfig {
     pub map_config: MapConfig,
@@ -7,6 +8,7 @@ pub struct SimulationConfig {
     pub mutation_config: MutationConfig
 }
 
+#[derive(Clone)]
 #[derive(Deserialize)]
 pub struct MapConfig {
     pub carnivore_count: u32,

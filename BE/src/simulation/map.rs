@@ -30,12 +30,10 @@ pub struct Map {
     input_count: usize,
     size_x: usize,
     size_y: usize,
-    generation: usize,
     tick: usize,
     generation_over: bool,
     record: bool,
-    current_generation_record: Option<GenerationRecording>,
-    complete_record: Vec<GenerationRecording>,
+    recording: Option<GenerationRecording>,
     generation_config: GenerationConfig,
     mutation_config: MutationConfig
 }
@@ -47,10 +45,10 @@ impl Map {
         mutation_config: MutationConfig
     ) -> Map {
         let mut map = Map {
-            animals: Vec::new(),
-            plants: Vec::new(),
-            carnivores: Vec::new(),
-            herbivores: Vec::new(),
+            animals: vec![vec![EntityRef::None; map_config.size_x]; map_config.size_y],
+            plants: vec![vec![EntityRef::None; map_config.size_x]; map_config.size_y],
+            carnivores: Vec::with_capacity(map_config.carnivore_count as usize),
+            herbivores: Vec::with_capacity(map_config.herbivore_count as usize),
             best_carnivores: Vec::new(),
             best_herbivores: Vec::new(),
             carnivore_start_count: map_config.carnivore_count,
@@ -72,56 +70,29 @@ impl Map {
             mutation_config,
             // Carnivore/Herbivore/Plant/Wall each has a input_side x input_side square of inputs, the centers are not included since it is occupied by the animal itself
             input_count: ((map_config.sense_radius * 2 + 1) * (map_config.sense_radius * 2 + 1) - 1) * 4,
-            generation: 0,
             tick: 0,
-            current_generation_record: None,
-            complete_record: Vec::new(),
+            recording: None,
         };
-        map.reset();
-        map
-    }
-    fn reset(&mut self) {
-        self.tick = 0;
-        self.generation = 0;
-        self.carnivore_count = 0;
-        self.herbivore_count = 0;
-        self.grass_count = 0;
-        self.generation_over = false;
-        let row: Vec<EntityRef> = vec![EntityRef::None; self.size_x];
-        self.plants = vec![row; self.size_y];
-        let row: Vec<EntityRef> = vec![EntityRef::None; self.size_x];
-        self.animals = vec![row; self.size_y];
-        self.carnivores = Vec::with_capacity(self.carnivore_start_count as usize);
-        self.herbivores = Vec::with_capacity(self.herbivore_start_count as usize);
-        self.best_carnivores = Vec::new();
-        self.best_herbivores = Vec::new();
-        self.generate_entities(self.carnivore_start_count, EntityType::Carnivore, false);
-        self.generate_entities(self.herbivore_start_count, EntityType::Herbivore, false);
-        self.generate_entities(self.grass_start_count, EntityType::Grass, false);
-        if self.record {
-            self.complete_record.clear();
-            self.init_current_generation_recording();
+        map.generate_entities(map.carnivore_start_count, EntityType::Carnivore, false);
+        map.generate_entities(map.herbivore_start_count, EntityType::Herbivore, false);
+        map.generate_entities(map.grass_start_count, EntityType::Grass, false);
+        if map.record {
+            map.init_current_generation_recording();
         }
+        map
     }
 
     pub fn start_new_generation(&mut self) {
-        if let Some(record) = self.current_generation_record.take() {
-            self.complete_record.push(record);
-        }
-        self.move_remaining_animals_to_best();
         if !self.generation_over {
-            // When generation_over is set generation is increased, if it is not set generation have to be increased here
-            self.generation += 1;
+            panic!("Tried to start a new generation before the old one was over");
         }
         self.tick = 0;
         self.carnivore_count = 0;
         self.herbivore_count = 0;
         self.grass_count = 0;
         self.generation_over = false;
-        let row: Vec<EntityRef> = vec![EntityRef::None; self.size_x];
-        self.plants = vec![row; self.size_y];
-        let row: Vec<EntityRef> = vec![EntityRef::None; self.size_x];
-        self.animals = vec![row; self.size_y];
+        self.plants = vec![vec![EntityRef::None; self.size_x]; self.size_y];
+        self.animals = vec![vec![EntityRef::None; self.size_x]; self.size_y];
         self.carnivores = Vec::with_capacity(self.carnivore_start_count as usize);
         self.herbivores = Vec::with_capacity(self.herbivore_start_count as usize);
         self.generate_entities(self.carnivore_start_count, EntityType::Carnivore, true);
@@ -135,7 +106,7 @@ impl Map {
     }
 
     fn init_current_generation_recording(&mut self){
-        self.current_generation_record = Some(
+        self.recording = Some(
             GenerationRecording::new(
                 self.carnivores.len(),
                 self.herbivores.len(),
@@ -150,7 +121,7 @@ impl Map {
             for plant in row {
                 match plant {
                     EntityRef::Grass => {
-                        self.current_generation_record.as_mut().unwrap().grass_at_start.push((x, y));
+                        self.recording.as_mut().unwrap().grass_at_start.push((x, y));
                     }
                     _ => {}
                 }
@@ -188,7 +159,7 @@ impl Map {
         }
     }
 
-    pub fn set_and_return_generation_over(&mut self) -> bool {
+    pub fn handle_and_return_generation_over(&mut self) -> bool {
         let old_val = self.generation_over;
         if self.generation_config.max_ticks_per_generation >= 0 && self.tick >= self.generation_config.max_ticks_per_generation as usize {
             self.generation_over = true;
@@ -207,13 +178,9 @@ impl Map {
             }
         }
         if !old_val && self.generation_over {
-            self.generation += 1;
+            self.move_remaining_animals_to_best();
         }
         self.generation_over
-    }
-
-    pub fn is_simulation_over(&self) -> bool {
-        self.generation >= self.generation_config.max_generation_count as usize
     }
 
     fn generate_entities(&mut self, entity_count: u32, entity_type: EntityType, from_best: bool) {
@@ -295,7 +262,7 @@ impl Map {
                 None => {}
             }
             if let Some(record) = temp_animal_record.take() {
-                self.current_generation_record.as_mut().unwrap().carnivore_records[id].push(record);
+                self.recording.as_mut().unwrap().carnivore_records[id].push(record);
             }
         }
         for id in 0..self.herbivores.len() {
@@ -312,7 +279,7 @@ impl Map {
                 None => {}
             }
             if let Some(record) = temp_animal_record.take() {
-                self.current_generation_record.as_mut().unwrap().herbivore_records[id].push(record);
+                self.recording.as_mut().unwrap().herbivore_records[id].push(record);
             }
         }
     }
@@ -390,8 +357,8 @@ impl Map {
                     return true;
                 }
                 if matches!(entity_type, EntityType::Grass) && matches!(self.plants[y][x], EntityRef::Grass) {
-                    if self.record && self.current_generation_record.is_some() {
-                        self.current_generation_record.as_mut().unwrap().dead_grass.push((self.tick, x, y));
+                    if self.record && self.recording.is_some() {
+                        self.recording.as_mut().unwrap().dead_grass.push((self.tick, x, y));
                     }
                     self.plants[y][x] = EntityRef::None;
                     self.grass_count -= 1;
@@ -591,8 +558,8 @@ impl Map {
         ret
     }
     
-    pub fn get_recording(&self) -> Vec<GenerationRecording> {
-        self.complete_record.clone()
+    pub fn get_recording(&self) -> Option<GenerationRecording> {
+        self.recording.clone()
     }
 }
 
