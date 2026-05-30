@@ -196,13 +196,13 @@ impl Map {
         if self.generation_config.all_entities_must_be_under_min_levels {
             if (self.generation_config.carnivore_count >= 0 && self.carnivore_count as i32 <= self.generation_config.carnivore_count) &&
                 (self.generation_config.herbivore_count >= 0 && self.herbivore_count as i32 <= self.generation_config.herbivore_count) &&
-                (self.generation_config.grass_count >= 0 && self.grass_count as i32 <= self.generation_config.carnivore_count) {
+                (self.generation_config.grass_count >= 0 && self.grass_count as i32 <= self.generation_config.grass_count) {
                 self.generation_over = true;
             }
         } else {
             if (self.generation_config.carnivore_count >= 0 && self.carnivore_count as i32 <= self.generation_config.carnivore_count) ||
                 (self.generation_config.herbivore_count >= 0 && self.herbivore_count as i32 <= self.generation_config.herbivore_count) ||
-                (self.generation_config.grass_count >= 0 && self.grass_count as i32 <= self.generation_config.carnivore_count) {
+                (self.generation_config.grass_count >= 0 && self.grass_count as i32 <= self.generation_config.grass_count) {
                 self.generation_over = true;
             }
         }

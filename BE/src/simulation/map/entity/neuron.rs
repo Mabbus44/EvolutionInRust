@@ -36,7 +36,7 @@ impl Neuron {
                 if min < -1.0 {
                     min = -1.0;
                 }
-                if max > -1.0 {
+                if max > 1.0 {
                     max = 1.0;
                 }
                 *constant = rand::rng().random_range(min..max)
